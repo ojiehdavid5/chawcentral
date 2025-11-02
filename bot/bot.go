@@ -42,6 +42,20 @@ func StartBot() *tgbotapi.BotAPI {
 			if update.Message.IsCommand() && update.Message.Command() == "start" {
 				HandleStartCommand(bot, update)
 			}
+
+			if update.CallbackQuery != nil {
+	data := update.CallbackQuery.Data
+	chatID := update.CallbackQuery.Message.Chat.ID
+
+	switch data {
+	case "view_menu":
+		bot.Send(tgbotapi.NewMessage(chatID, "Here’s our menu for the tradefair 🍱"))
+	case "top_up":
+		bot.Send(tgbotapi.NewMessage(chatID, "You can top up your CampusBite wallet 💳"))
+	case "view_cart":
+		bot.Send(tgbotapi.NewMessage(chatID, "Your cart is currently empty 🛒"))
+	}
+}
 		}
 	}()
 
