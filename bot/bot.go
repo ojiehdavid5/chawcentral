@@ -76,7 +76,25 @@ if result.Error != nil {
 	msgText = fmt.Sprintf("👋 Welcome back, %s! Ready to order something delicious?", user.FirstName)
 }
 
-// Send the message
+
+
+// Create inline buttons
+menuButton := tgbotapi.NewInlineKeyboardButtonData("🍔 View Menu", "view_menu")
+topUpButton := tgbotapi.NewInlineKeyboardButtonData("💳 Top Up Wallet", "top_up")
+cartButton := tgbotapi.NewInlineKeyboardButtonData("🛒 View Cart", "view_cart")
+
+// Arrange them in rows
+keyboard := tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(menuButton, topUpButton, cartButton),
+)
+
+// Attach keyboard to message
 msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
+msg.ReplyMarkup = keyboard
+
+// Send message
+
+// Send the message
+
 bot.Send(msg)
 }
