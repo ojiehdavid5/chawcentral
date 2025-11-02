@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "fmt"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,7 +14,7 @@ func main() {
 		return c.SendString("Hello, World!")
 	})
 
-	// ✅ Start Telegram bot
+	// Start Telegram bot in background
 	telegramBot := bot.StartBot()
 	if telegramBot == nil {
 		panic("❌ Failed to start bot")

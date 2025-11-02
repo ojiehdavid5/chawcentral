@@ -6,13 +6,14 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/ojiehdavid5/campusbyte/model"
 	"github.com/ojiehdavid5/campusbyte/config"
 )
 
-func StartBot() *tgbotapi.BotAPI { // Original function name
+// StartBot launches the Telegram bot and handles updates
+func StartBot() *tgbotapi.BotAPI {
 	_ = godotenv.Load()
 	token := os.Getenv("TELEGRAM_APITOKEN")
 	if token == "" {
@@ -25,39 +26,38 @@ func StartBot() *tgbotapi.BotAPI { // Original function name
 	}
 
 	bot.Debug = true
-	fmt.Printf("Authorized on account %s\n", bot.Self.UserName)
-	go func() {
+	fmt.Printf("✅ Authorized on account %s\n", bot.Self.UserName)
 
+	// Run updates in a goroutine so it doesn't block Fiber
+	go func() {
 		u := tgbotapi.NewUpdate(0)
 		u.Timeout = 60
 		updates := bot.GetUpdatesChan(u)
 
 		for update := range updates {
-			if update.Message != nil {
-				// Handle incoming messages (text, commands)
-				chatID := update.Message.Chat.ID
-				text := update.Message.Text
-				fmt.Println(chatID, text)
+			if update.Message == nil {
+				continue
+			}
+
+			if update.Message.IsCommand() && update.Message.Command() == "start" {
+				HandleStartCommand(bot, update)
 			}
 		}
 	}()
 
 	return bot
 }
-func HandleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	if update.Message == nil {
-		return
-	}
 
+// HandleStartCommand handles /start — save user & greet them
+func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	user := update.Message.From
 	telegramID := user.ID
 
-	// Check if user already exists
 	var existing model.User
 	result := config.DB.Where("telegram_id = ?", telegramID).First(&existing)
 
 	if result.Error != nil {
-		// If not found, create new user
+		// Create a new user if not found
 		newUser := model.User{
 			TelegramID: telegramID,
 			FirstName:  user.FirstName,
@@ -65,10 +65,10 @@ func HandleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			Username:   user.UserName,
 		}
 		config.DB.Create(&newUser)
-		log.Printf("New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
+		log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
 	}
 
-	// Send a welcome message
+	// Send personalized welcome message
 	msgText := fmt.Sprintf("👋 Hey %s! Welcome to CampusBite — your tradefair food assistant!", user.FirstName)
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
 	bot.Send(msg)
