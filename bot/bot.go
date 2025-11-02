@@ -35,27 +35,30 @@ func StartBot() *tgbotapi.BotAPI {
 		updates := bot.GetUpdatesChan(u)
 
 		for update := range updates {
-			if update.Message == nil {
-				continue
+
+			// Handle /start command
+			if update.Message != nil {
+				if update.Message.IsCommand() && update.Message.Command() == "start" {
+					HandleStartCommand(bot, update)
+				}
 			}
 
-			if update.Message.IsCommand() && update.Message.Command() == "start" {
-				HandleStartCommand(bot, update)
-			}
-
+			// Handle inline button callbacks
 			if update.CallbackQuery != nil {
-	data := update.CallbackQuery.Data
-	chatID := update.CallbackQuery.Message.Chat.ID
+				data := update.CallbackQuery.Data
+				chatID := update.CallbackQuery.Message.Chat.ID
 
-	switch data {
-	case "view_menu":
-		bot.Send(tgbotapi.NewMessage(chatID, "Here’s our menu for the tradefair 🍱"))
-	case "top_up":
-		bot.Send(tgbotapi.NewMessage(chatID, "You can top up your CampusBite wallet 💳"))
-	case "view_cart":
-		bot.Send(tgbotapi.NewMessage(chatID, "Your cart is currently empty 🛒"))
-	}
-}
+				switch data {
+				case "view_menu":
+					bot.Send(tgbotapi.NewMessage(chatID, "Here’s our menu for the tradefair 🍱"))
+				case "top_up":
+					bot.Send(tgbotapi.NewMessage(chatID, "You can top up your CampusBite wallet 💳"))
+				case "view_cart":
+					bot.Send(tgbotapi.NewMessage(chatID, "Your cart is currently empty 🛒"))
+				default:
+					bot.Send(tgbotapi.NewMessage(chatID, "❓ Unknown option"))
+				}
+			}
 		}
 	}()
 
@@ -70,45 +73,38 @@ func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	var existing model.User
 	result := config.DB.Where("telegram_id = ?", telegramID).First(&existing)
 
-var msgText string // declare message text outside if/else
+	var msgText string
 
-if result.Error != nil {
-	// Create a new user if not found
-	newUser := model.User{
-		TelegramID: telegramID,
-		FirstName:  user.FirstName,
-		LastName:   user.LastName,
-		Username:   user.UserName,
+	if result.Error != nil {
+		// Create a new user if not found
+		newUser := model.User{
+			TelegramID: telegramID,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			Username:   user.UserName,
+		}
+		config.DB.Create(&newUser)
+		log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
+
+		msgText = fmt.Sprintf("👋 Hey %s! Welcome to CampusBite — your tradefair food assistant!", user.FirstName)
+	} else {
+		msgText = fmt.Sprintf("👋 Welcome back, %s! Ready to order something delicious?", user.FirstName)
 	}
-	config.DB.Create(&newUser)
-	log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
 
-	// First-time welcome message
-	msgText = fmt.Sprintf("👋 Hey %s! Welcome to CampusBite — your tradefair food assistant!", user.FirstName)
-} else {
-	// Returning user message
-	msgText = fmt.Sprintf("👋 Welcome back, %s! Ready to order something delicious?", user.FirstName)
-}
+	// Create inline buttons
+	menuButton := tgbotapi.NewInlineKeyboardButtonData("🍔 View Menu", "view_menu")
+	topUpButton := tgbotapi.NewInlineKeyboardButtonData("💳 Top Up Wallet", "top_up")
+	cartButton := tgbotapi.NewInlineKeyboardButtonData("🛒 View Cart", "view_cart")
 
+	// Arrange them in rows
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(menuButton, topUpButton, cartButton),
+	)
 
+	// Attach keyboard to message
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
+	msg.ReplyMarkup = keyboard
 
-// Create inline buttons
-menuButton := tgbotapi.NewInlineKeyboardButtonData("🍔 View Menu", "view_menu")
-topUpButton := tgbotapi.NewInlineKeyboardButtonData("💳 Top Up Wallet", "top_up")
-cartButton := tgbotapi.NewInlineKeyboardButtonData("🛒 View Cart", "view_cart")
-
-// Arrange them in rows
-keyboard := tgbotapi.NewInlineKeyboardMarkup(
-	tgbotapi.NewInlineKeyboardRow(menuButton, topUpButton, cartButton),
-)
-
-// Attach keyboard to message
-msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
-msg.ReplyMarkup = keyboard
-
-// Send message
-
-// Send the message
-
-bot.Send(msg)
+	// Send the message
+	bot.Send(msg)
 }
