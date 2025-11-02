@@ -68,8 +68,4 @@ func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
 	}
 
-	// Send personalized welcome message
-	msgText := fmt.Sprintf("👋 Hey %s! Welcome to CampusBite — your tradefair food assistant!", user.FirstName)
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
-	bot.Send(msg)
 }
