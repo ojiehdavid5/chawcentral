@@ -5,10 +5,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/ojiehdavid5/campusbyte/bot"
+	"github.com/ojiehdavid5/campusbyte/config"
 )
 
 func main() {
 	app := fiber.New()
+	config.ConnectDB()
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World!")
