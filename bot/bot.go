@@ -56,16 +56,27 @@ func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	var existing model.User
 	result := config.DB.Where("telegram_id = ?", telegramID).First(&existing)
 
-	if result.Error != nil {
-		// Create a new user if not found
-		newUser := model.User{
-			TelegramID: telegramID,
-			FirstName:  user.FirstName,
-			LastName:   user.LastName,
-			Username:   user.UserName,
-		}
-		config.DB.Create(&newUser)
-		log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
-	}
+var msgText string // declare message text outside if/else
 
+if result.Error != nil {
+	// Create a new user if not found
+	newUser := model.User{
+		TelegramID: telegramID,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		Username:   user.UserName,
+	}
+	config.DB.Create(&newUser)
+	log.Printf("🆕 New user registered: %s (%d)\n", newUser.FirstName, newUser.TelegramID)
+
+	// First-time welcome message
+	msgText = fmt.Sprintf("👋 Hey %s! Welcome to CampusBite — your tradefair food assistant!", user.FirstName)
+} else {
+	// Returning user message
+	msgText = fmt.Sprintf("👋 Welcome back, %s! Ready to order something delicious?", user.FirstName)
+}
+
+// Send the message
+msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
+bot.Send(msg)
 }
