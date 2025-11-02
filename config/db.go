@@ -1,0 +1,57 @@
+package config
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"github.com/ojiehdavid5/campusbyte/model"
+)
+
+var DB *gorm.DB
+
+func ConnectDB() {
+	// Load env variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// Read from env
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+
+	// Check that no value is empty
+	if host == "" || port == "" || user == "" || password == "" || dbname == "" {
+		log.Fatalf("Missing one or more DB environment variables")
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname,
+	)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// If you need to fetch and store banks, call this function elsewhere after DB connection is established to avoid import cycles.
+	// if err := handler.FetchAndStoreBanks(db); err != nil {
+	// 	log.Fatal("error storing banks:", err)
+	// }
+
+	err = db.AutoMigrate(&model.User{})
+	if err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	DB = db
+
+	fmt.Println("✅ Connected to database")
+}
