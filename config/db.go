@@ -46,7 +46,7 @@ func ConnectDB() {
 	// 	log.Fatal("error storing banks:", err)
 	// }
 
-	err = db.AutoMigrate(&model.User{}, &model.MenuItem{})
+	err = db.AutoMigrate(&model.User{}, &model.MenuItem{}, &model.Cart{}, )
 	if err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
