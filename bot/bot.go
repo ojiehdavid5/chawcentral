@@ -79,11 +79,49 @@ func StartBot() *tgbotapi.BotAPI {
 
 				case "top_up":
 					bot.Send(tgbotapi.NewMessage(chatID, "💳 You can top up your CampusBite wallet soon!"))
-				case "view_cart":
-					bot.Send(tgbotapi.NewMessage(chatID, "🛒 Your cart is currently empty."))
-				}
 
-				// ✅ 2️⃣ Handle dynamic "add_cart_" actions (Step 4)
+				case "view_cart":
+					userID := update.CallbackQuery.From.ID
+
+					// Find user in DB
+					var user model.User
+					config.DB.Where("telegram_id = ?", userID).First(&user)
+
+					// Fetch user's cart items
+					var cartItems []model.Cart
+					config.DB.Preload("MenuItem").Where("user_id = ?", user.ID).Find(&cartItems)
+
+					if len(cartItems) == 0 {
+						bot.Send(tgbotapi.NewMessage(chatID, "🛒 Your cart is empty. Add something delicious from the menu!"))
+						continue
+					}
+
+					total := 0.0
+					cartText := "🛒 *Your Cart:*\n\n"
+
+					for _, c := range cartItems {
+						itemTotal := c.MenuItem.Price * float64(c.Quantity)
+						total += itemTotal
+						cartText += fmt.Sprintf("🍴 %s x%d — ₦%.2f\n", c.MenuItem.Name, c.Quantity, itemTotal)
+					}
+
+					cartText += fmt.Sprintf("\n💰 *Total:* ₦%.2f", total)
+
+					// Add checkout buttons
+					checkoutBtn := tgbotapi.NewInlineKeyboardButtonData("🧾 Checkout", "checkout")
+					clearBtn := tgbotapi.NewInlineKeyboardButtonData("❌ Clear Cart", "clear_cart")
+
+					keyboard := tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(checkoutBtn, clearBtn),
+					)
+
+					msg := tgbotapi.NewMessage(chatID, cartText)
+					msg.ParseMode = "Markdown"
+					msg.ReplyMarkup = keyboard
+					bot.Send(msg)
+				} // <- closes switch
+
+				// ✅ 2️⃣ Handle dynamic "add_cart_" actions (Step 4) — moved outside switch
 				if strings.HasPrefix(data, "add_cart_") {
 					itemIDStr := strings.TrimPrefix(data, "add_cart_")
 					itemID, _ := strconv.Atoi(itemIDStr)
