@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
-	"github.com/joho/godotenv"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 
-	"github.com/ojiehdavid5/campusbyte/model"
 	"github.com/ojiehdavid5/campusbyte/config"
+	"github.com/ojiehdavid5/campusbyte/model"
 )
+
+// StartBot launches the Telegram bot and handles updates
 
 // StartBot launches the Telegram bot and handles updates
 func StartBot() *tgbotapi.BotAPI {
@@ -28,7 +32,6 @@ func StartBot() *tgbotapi.BotAPI {
 	bot.Debug = true
 	fmt.Printf("✅ Authorized on account %s\n", bot.Self.UserName)
 
-	// Run updates in a goroutine so it doesn't block Fiber
 	go func() {
 		u := tgbotapi.NewUpdate(0)
 		u.Timeout = 60
@@ -36,56 +39,80 @@ func StartBot() *tgbotapi.BotAPI {
 
 		for update := range updates {
 
-			// Handle /start command
+			// 🟩 Handle /start
 			if update.Message != nil {
 				if update.Message.IsCommand() && update.Message.Command() == "start" {
 					HandleStartCommand(bot, update)
 				}
 			}
 
-			// Handle inline button callbacks
+			// 🟩 Handle callback queries (buttons)
 			if update.CallbackQuery != nil {
 				data := update.CallbackQuery.Data
 				chatID := update.CallbackQuery.Message.Chat.ID
 
+				// ✅ 1️⃣ Handle normal static buttons
 				switch data {
 				case "view_menu":
-						var menuItems []model.MenuItem
-		result := config.DB.Find(&menuItems)
+					var menuItems []model.MenuItem
+					result := config.DB.Find(&menuItems)
 
-		if result.Error != nil || len(menuItems) == 0 {
-			bot.Send(tgbotapi.NewMessage(chatID, "😕 No menu items available right now. Check back later!"))
-			continue
-		}
+					if result.Error != nil || len(menuItems) == 0 {
+						bot.Send(tgbotapi.NewMessage(chatID, "😕 No menu items available right now. Check back later!"))
+						continue
+					}
 
-		for _, item := range menuItems {
-			text := fmt.Sprintf("🍴 *%s*\n💰 ₦%.2f\n%s", item.Name, item.Price, item.Description)
+					for _, item := range menuItems {
+						text := fmt.Sprintf("🍴 *%s*\n💰 ₦%.2f\n%s", item.Name, item.Price, item.Description)
 
-			// Add "Add to Cart" button
-			addToCartBtn := tgbotapi.NewInlineKeyboardButtonData("➕ Add to Cart", fmt.Sprintf("add_%d", item.ID))
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(addToCartBtn),
-			)
+						// 👇 note: we use "add_cart_" here
+						addToCartBtn := tgbotapi.NewInlineKeyboardButtonData("➕ Add to Cart", fmt.Sprintf("add_cart_%d", item.ID))
+						keyboard := tgbotapi.NewInlineKeyboardMarkup(
+							tgbotapi.NewInlineKeyboardRow(addToCartBtn),
+						)
 
-			msg := tgbotapi.NewMessage(chatID, text)
-			msg.ParseMode = "Markdown"
-			msg.ReplyMarkup = keyboard
+						msg := tgbotapi.NewMessage(chatID, text)
+						msg.ParseMode = "Markdown"
+						msg.ReplyMarkup = keyboard
+						bot.Send(msg)
+					}
 
-			bot.Send(msg)
-		}
 				case "top_up":
-					bot.Send(tgbotapi.NewMessage(chatID, "You can top up your CampusBite wallet 💳"))
+					bot.Send(tgbotapi.NewMessage(chatID, "💳 You can top up your CampusBite wallet soon!"))
 				case "view_cart":
-					bot.Send(tgbotapi.NewMessage(chatID, "Your cart is currently empty 🛒"))
-				default:
-					bot.Send(tgbotapi.NewMessage(chatID, "❓ Unknown option"))
+					bot.Send(tgbotapi.NewMessage(chatID, "🛒 Your cart is currently empty."))
+				}
+
+				// ✅ 2️⃣ Handle dynamic "add_cart_" actions (Step 4)
+				if strings.HasPrefix(data, "add_cart_") {
+					itemIDStr := strings.TrimPrefix(data, "add_cart_")
+					itemID, _ := strconv.Atoi(itemIDStr)
+					userID := update.CallbackQuery.From.ID
+
+					var user model.User
+					config.DB.Where("telegram_id = ?", userID).First(&user)
+
+					var cartItem model.Cart
+					err := config.DB.Where("user_id = ? AND menu_item_id = ?", user.ID, itemID).First(&cartItem).Error
+					if err != nil {
+						// New cart entry
+						cartItem = model.Cart{
+							UserID:     user.ID,
+							MenuItemID: uint(itemID),
+							Quantity:   1,
+						}
+						config.DB.Create(&cartItem)
+						bot.Send(tgbotapi.NewMessage(chatID, "✅ Added to cart!"))
+					} else {
+						// Update quantity
+						cartItem.Quantity++
+						config.DB.Save(&cartItem)
+						bot.Send(tgbotapi.NewMessage(chatID, "🛒 Quantity updated!"))
+					}
 				}
 			}
 		}
 	}()
-
-
-	
 
 	return bot
 }
