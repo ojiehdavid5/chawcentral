@@ -191,6 +191,8 @@ func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		tgbotapi.NewInlineKeyboardRow(menuButton, topUpButton, cartButton),
 	)
 
+
+	
 	// Attach keyboard to message
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
 	msg.ReplyMarkup = keyboard
