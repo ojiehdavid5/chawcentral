@@ -50,7 +50,29 @@ func StartBot() *tgbotapi.BotAPI {
 
 				switch data {
 				case "view_menu":
-					bot.Send(tgbotapi.NewMessage(chatID, "Here’s our menu for the tradefair 🍱"))
+						var menuItems []model.MenuItem
+		result := config.DB.Find(&menuItems)
+
+		if result.Error != nil || len(menuItems) == 0 {
+			bot.Send(tgbotapi.NewMessage(chatID, "😕 No menu items available right now. Check back later!"))
+			continue
+		}
+
+		for _, item := range menuItems {
+			text := fmt.Sprintf("🍴 *%s*\n💰 ₦%.2f\n%s", item.Name, item.Price, item.Description)
+
+			// Add "Add to Cart" button
+			addToCartBtn := tgbotapi.NewInlineKeyboardButtonData("➕ Add to Cart", fmt.Sprintf("add_%d", item.ID))
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(addToCartBtn),
+			)
+
+			msg := tgbotapi.NewMessage(chatID, text)
+			msg.ParseMode = "Markdown"
+			msg.ReplyMarkup = keyboard
+
+			bot.Send(msg)
+		}
 				case "top_up":
 					bot.Send(tgbotapi.NewMessage(chatID, "You can top up your CampusBite wallet 💳"))
 				case "view_cart":
