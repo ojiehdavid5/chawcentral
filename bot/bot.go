@@ -155,6 +155,8 @@ func StartBot() *tgbotapi.BotAPI {
 	return bot
 }
 
+
+
 // HandleStartCommand handles /start — save user & greet them
 func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	user := update.Message.From
