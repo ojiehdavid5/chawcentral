@@ -80,6 +80,25 @@ func StartBot() *tgbotapi.BotAPI {
 				case "top_up":
 					bot.Send(tgbotapi.NewMessage(chatID, "💳 You can top up your CampusBite wallet soon!"))
 
+					case "clear_cart":
+	userID := update.CallbackQuery.From.ID
+
+	// Find the user
+	var user model.User
+	if err := config.DB.Where("telegram_id = ?", userID).First(&user).Error; err != nil {
+		bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not find your account. Try /start again."))
+		return
+	}
+
+	// Delete all their cart items
+	if err := config.DB.Where("user_id = ?", user.ID).Delete(&model.Cart{}).Error; err != nil {
+		bot.Send(tgbotapi.NewMessage(chatID, "❌ Failed to clear your cart. Please try again."))
+		return
+	}
+
+	bot.Send(tgbotapi.NewMessage(chatID, "🧹 Your cart has been cleared successfully!"))
+
+
 				case "view_cart":
 					userID := update.CallbackQuery.From.ID
 
