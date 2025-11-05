@@ -12,3 +12,5 @@ type Wallet struct {
 	BankName      string
 	KoraRef       string // Reference from Kora API
 }
+
+
