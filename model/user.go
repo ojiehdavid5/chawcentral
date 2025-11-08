@@ -12,4 +12,6 @@ type User struct {
 	LastName   string
 	Username   string
 	CreatedAt  time.Time
+	Wallet Wallet `gorm:"foreignKey:WalletID"`
+
 }
