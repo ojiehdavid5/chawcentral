@@ -6,12 +6,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 
 	"github.com/ojiehdavid5/campusbyte/config"
 	"github.com/ojiehdavid5/campusbyte/model"
+	"github.com/ojiehdavid5/campusbyte/kora"
 )
 
 // StartBot launches the Telegram bot and handles updates
@@ -78,26 +80,43 @@ func StartBot() *tgbotapi.BotAPI {
 					}
 
 				case "top_up":
-					bot.Send(tgbotapi.NewMessage(chatID, "💳 You can top up your CampusBite wallet soon!"))
+					amount := 1000.0
+					userID := update.CallbackQuery.From.ID
 
-					case "clear_cart":
-	userID := update.CallbackQuery.From.ID
+					// Find the user in DB
+					var user model.User
+					if err := config.DB.Where("telegram_id = ?", userID).First(&user).Error; err != nil {
+						bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not find your account. Try /start again."))
+						continue
+					}
 
-	// Find the user
-	var user model.User
-	if err := config.DB.Where("telegram_id = ?", userID).First(&user).Error; err != nil {
-		bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not find your account. Try /start again."))
-		return
-	}
+					ref := fmt.Sprintf("wallet_topup_%d_%d", user.ID, time.Now().Unix())
 
-	// Delete all their cart items
-	if err := config.DB.Where("user_id = ?", user.ID).Delete(&model.Cart{}).Error; err != nil {
-		bot.Send(tgbotapi.NewMessage(chatID, "❌ Failed to clear your cart. Please try again."))
-		return
-	}
+					paymentURL, err := kora.CreateKoraPayment(ref, user, amount)
+					if err != nil {
+						bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not initiate payment. Try again."))
+						return
+					}
+					fmt.Println("This is the url ", paymentURL)
+					msg := fmt.Sprintf("💳 Tap below to top-up ₦%.2f:\n%s", amount, paymentURL)
+					bot.Send(tgbotapi.NewMessage(chatID, msg))
+				case "clear_cart":
+					userID := update.CallbackQuery.From.ID
 
-	bot.Send(tgbotapi.NewMessage(chatID, "🧹 Your cart has been cleared successfully!"))
+					// Find the user
+					var user model.User
+					if err := config.DB.Where("telegram_id = ?", userID).First(&user).Error; err != nil {
+						bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not find your account. Try /start again."))
+						return
+					}
 
+					// Delete all their cart items
+					if err := config.DB.Where("user_id = ?", user.ID).Delete(&model.Cart{}).Error; err != nil {
+						bot.Send(tgbotapi.NewMessage(chatID, "❌ Failed to clear your cart. Please try again."))
+						return
+					}
+
+					bot.Send(tgbotapi.NewMessage(chatID, "🧹 Your cart has been cleared successfully!"))
 
 				case "view_cart":
 					userID := update.CallbackQuery.From.ID
@@ -174,8 +193,6 @@ func StartBot() *tgbotapi.BotAPI {
 	return bot
 }
 
-
-
 // HandleStartCommand handles /start — save user & greet them
 func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	user := update.Message.From
@@ -212,8 +229,6 @@ func HandleStartCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		tgbotapi.NewInlineKeyboardRow(menuButton, topUpButton, cartButton),
 	)
 
-
-	
 	// Attach keyboard to message
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
 	msg.ReplyMarkup = keyboard
