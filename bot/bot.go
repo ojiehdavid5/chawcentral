@@ -79,7 +79,7 @@ func StartBot() *tgbotapi.BotAPI {
 						bot.Send(msg)
 					}
 
-				case "top_up":
+				case "top_up": 
 					amount := 1000.0
 					userID := update.CallbackQuery.From.ID
 
