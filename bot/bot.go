@@ -91,14 +91,16 @@ func StartBot() *tgbotapi.BotAPI {
 					}
 
 					ref := fmt.Sprintf("wallet_topup_%d_%d", user.ID, time.Now().Unix())
+					fmt.Println("This is the reference ", ref)
 
-					paymentURL, err := kora.CreateKoraPayment(ref, user, amount)
-					if err != nil {
+checkoutURL, err := kora.CreateKoraPayment(user, amount, "wallet")
+fmt.Println("error ", err)
+								if err != nil {
 						bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Could not initiate payment. Try again."))
 						return
 					}
-					fmt.Println("This is the url ", paymentURL)
-					msg := fmt.Sprintf("💳 Tap below to top-up ₦%.2f:\n%s", amount, paymentURL)
+					fmt.Println("This is the url ", checkoutURL)
+					msg := fmt.Sprintf("💳 Tap below to top-up ₦%.2f:\n%s", amount, checkoutURL)
 					bot.Send(tgbotapi.NewMessage(chatID, msg))
 				case "clear_cart":
 					userID := update.CallbackQuery.From.ID
